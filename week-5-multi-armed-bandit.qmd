@@ -1,0 +1,139 @@
+---
+title: "Adaptive Decision Analysis: Multi-Armed Bandits"
+author: "Dillon, Hannah, and Tyler"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+    df-print: paged
+    smooth-scroll: true
+editor: visual
+fontsize: 12pt
+---
+
+> To start open run the Shiny app `app.R`.
+
+---
+
+# 1. The Multi-Armed Bandit Problem
+
+## 1.1 Formal setup
+
+- We have $K$ arms (options), indexed $k = 1, \dots, K$.
+- Each arm $k$ yields a binary reward $R_{k} \in \{0,1\}$ with **unknown** success probability $p_k \in (0,1)$.
+- At round $t = 1,2,\dots,T$, we **choose** an arm $A_t \in \{1,\dots,K\}$, observe reward $R_{A_t,t}$, and update our strategy.
+
+**Objective.** Maximize **cumulative reward** or equivalently **minimize regret** relative to the best arm
+$$
+p_* = \max_{k} p_k,
+\qquad
+k_* \in \operatorname*{arg\,max}_{k} p_k.
+$$
+
+- **Cumulative reward** after $T$ rounds:
+$$
+S_T = \sum_{t=1}^{T} R_{A_t,t}.
+$$
+
+- **Cumulative regret** after $T$ rounds:
+$$
+\mathcal{R}(T) = T\,p_* - \sum_{t=1}^{T} R_{A_t,t}.
+$$
+
+**Questions (before opening the app).**
+- If you knew $p_k$ for all $k$, what would you do at each round?
+- If you *don’t* know $p_k$, why can a purely exploitative strategy be risky?
+- Propose a way to quantify how “costly” learning is.
+
+## 1.2 Exploration vs. exploitation
+
+- **Exploration**: try arms with uncertain payoffs to learn $p_k$.
+- **Exploitation**: pull the arm that currently looks best to earn reward.
+- **Tension**: explore enough to identify $k_*$, but not so much that you waste pulls.
+
+**Questions.**
+- Give an example where early exploration clearly pays off later.
+- What observable signals suggest “it’s time to exploit”?
+
+---
+
+# 2. Single-Arm Learning (Learn tab in the app)
+
+This tab illustrates **Bayesian learning** for *one* Bernoulli arm.
+
+## 2.1 Model and posterior
+
+- **Likelihood.** If we observe $s$ successes and $f$ failures from one arm,
+$$
+R_1,\dots,R_n \mid p \sim \operatorname{Bernoulli}(p),
+\qquad n = s + f.
+$$
+
+- **Conjugate prior.** $p \sim \operatorname{Beta}(\alpha_0,\beta_0)$.
+
+- **Posterior.**
+$$
+p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
+$$
+
+- **Posterior mean** and a $100(1-\gamma)\%$ **credible interval**:
+$$
+\mathbb{E}[p \mid \text{data}] =
+\frac{\alpha_0 + s}{\alpha_0 + \beta_0 + s + f},
+\qquad
+\text{CI}_{1-\gamma} = [\, q_{\gamma/2},\; q_{1-\gamma/2} \,],
+$$
+where $q_q$ is the $q$-quantile of $\operatorname{Beta}(\alpha_0+s,\beta_0+f)$.
+
+## 2.2 What the app shows
+
+- **Posterior Beta curve**: your updated belief over $p$.
+- **Table**: prior hyperparameters, observed counts $(s,f)$, posterior hyperparameters, posterior mean, and (optionally) the *true* $p$ (hidden by default).
+- In the app, a **“success”** is a realized reward of $1$; a **“failure”** is $0$.
+
+## 2.3 Activity A — Single-arm Bayesian updating
+
+1. Open **Learn (1-Arm)**. Set prior $\alpha_0=\beta_0=1$ and **hide** the true $p$.
+2. Click **Pull the Arm** 10 times (with “Pulls per click” set to 1). Record $s$, $f$, and the posterior mean.
+3. Reveal the true $p$. Did your $95\%$ credible interval contain it?
+4. Continue pulling until total pulls $n \ge 50$. Observe how the posterior narrows.
+
+**Questions.**
+- How do larger prior values $(\alpha_0,\beta_0)$ change early-stage behavior?
+- If the prior strongly favors high $p$ but the data are unfavorable, how quickly does the posterior adjust?
+- Why is conjugacy (Beta–Bernoulli) pedagogically useful here?
+
+**What to learn from this activity.**
+- Posterior uncertainty **shrinks** with data.
+- The posterior mean is a smoothed estimate (data + prior).
+- This exact updating mechanism underlies **Thompson Sampling** in multi-arm settings.
+
+---
+
+# 3. Multi-Arm Policies (Play tab)
+
+This tab lets you **run a bandit** with $K$ arms and compare policies.
+
+## 3.1 Interpreting the visuals
+
+- **Cumulative Regret**: the curve of $\mathcal{R}(t)$ versus $t$. *Lower is better.* A flatter slope means faster learning/focus on near-optimal arms.
+- **Pulls by Arm**: bar chart with counts $n_k(t)$ for each arm; in good runs the best arm’s bar grows dominant.
+- **History table**: per-round log showing selected arm, reward (0/1), cumulative reward, **best possible** (oracle) reward, and regret.  
+  - **Best possible at $t$** is $t \cdot p_*$ (the app knows $p_*$ to compute regret).
+
+## 3.2 Policies
+
+### (a) $\varepsilon$-Greedy
+- Maintain sample means $\hat{\mu}_k(t)$.
+- With probability $\varepsilon$, **explore** uniformly; with probability $1-\varepsilon$, **exploit** the arm $\arg\max_k \hat{\mu}_k(t)$.
+- Pros: simple baseline.  
+- Cons: fixed exploration may be too much late, too little early.
+
+### (b) UCB1 (Upper Confidence Bound)
+Choose the arm that maximizes an **optimistic** estimate:
+$$
+\operatorname{UCB1}_k(t) = \hat{\mu}_k(t) + \sqrt{\frac{2\ln t}{n_k(t)}},
+$$
+where $n_k(t)$ is the number of times arm $k$ has been pulled up to round $t$.
+The confidence bonus **shrinks** as $n_k(t)$_
