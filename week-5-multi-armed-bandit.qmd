@@ -12,7 +12,7 @@ editor: visual
 fontsize: 12pt
 ---
 
-> To start open run the Shiny app `app.R`.
+> To start run the Shiny app `app.R`.
 
 ---
 
@@ -20,25 +20,24 @@ fontsize: 12pt
 
 ## 1.1 Formal setup
 
-- We have $K$ arms (options), indexed $k = 1, \dots, K$.
-- Each arm $k$ yields a binary reward $R_{k} \in \{0,1\}$ with **unknown** success probability $p_k \in (0,1)$.
-- At round $t = 1,2,\dots,T$, we **choose** an arm $A_t \in \{1,\dots,K\}$, observe reward $R_{A_t,t}$, and update our strategy.
+- We have $K$ arms (options), indexed $k=1,\dots,K$.
+- Each arm $k$ yields a binary reward $R_{k}\in\{0,1\}$ with **unknown** success probability $p_k\in(0,1)$.
+- At round $t=1,2,\dots,T$, we **choose** an arm $A_t\in\{1,\dots,K\}$, observe reward $R_{A_t,t}$, and update our strategy.
 
 **Objective.** Maximize **cumulative reward** or equivalently **minimize regret** relative to the best arm
 $$
-p_* = \max_{k} p_k,
-\qquad
-k_* \in \operatorname*{arg\,max}_{k} p_k.
+p_*=\max_{k}p_k,\qquad
+k_*\in\operatorname*{arg\,max}_{k}p_k.
 $$
 
 - **Cumulative reward** after $T$ rounds:
 $$
-S_T = \sum_{t=1}^{T} R_{A_t,t}.
+S_T=\sum_{t=1}^{T}R_{A_t,t}.
 $$
 
 - **Cumulative regret** after $T$ rounds:
 $$
-\mathcal{R}(T) = T\,p_* - \sum_{t=1}^{T} R_{A_t,t}.
+\mathcal{R}(T)=T\,p_*-\sum_{t=1}^{T}R_{A_t,t}.
 $$
 
 **Questions (before opening the app).**
@@ -66,23 +65,22 @@ This tab illustrates **Bayesian learning** for *one* Bernoulli arm.
 
 - **Likelihood.** If we observe $s$ successes and $f$ failures from one arm,
 $$
-R_1,\dots,R_n \mid p \sim \operatorname{Bernoulli}(p),
-\qquad n = s + f.
+R_1,\dots,R_n\mid p\sim\operatorname{Bernoulli}(p),\qquad n=s+f.
 $$
 
-- **Conjugate prior.** $p \sim \operatorname{Beta}(\alpha_0,\beta_0)$.
+- **Conjugate prior.** $p\sim\operatorname{Beta}(\alpha_0,\beta_0)$.
 
 - **Posterior.**
 $$
-p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
+p\mid\text{data}\sim\operatorname{Beta}(\alpha_0+s,\;\beta_0+f).
 $$
 
 - **Posterior mean** and a $100(1-\gamma)\%$ **credible interval**:
 $$
-\mathbb{E}[p \mid \text{data}] =
-\frac{\alpha_0 + s}{\alpha_0 + \beta_0 + s + f},
+\mathbb{E}[p\mid\text{data}]
+=\frac{\alpha_0+s}{\alpha_0+\beta_0+s+f},
 \qquad
-\text{CI}_{1-\gamma} = [\, q_{\gamma/2},\; q_{1-\gamma/2} \,],
+\text{CI}_{1-\gamma}=[\,q_{\gamma/2},\;q_{1-\gamma/2}\,],
 $$
 where $q_q$ is the $q$-quantile of $\operatorname{Beta}(\alpha_0+s,\beta_0+f)$.
 
@@ -97,12 +95,12 @@ where $q_q$ is the $q$-quantile of $\operatorname{Beta}(\alpha_0+s,\beta_0+f)$.
 1. Open **Learn (1-Arm)**. Set prior $\alpha_0=\beta_0=1$ and **hide** the true $p$.
 2. Click **Pull the Arm** 10 times (with “Pulls per click” set to 1). Record $s$, $f$, and the posterior mean.
 3. Reveal the true $p$. Did your $95\%$ credible interval contain it?
-4. Continue pulling until total pulls $n \ge 50$. Observe how the posterior narrows.
+4. Continue pulling until total pulls $n\ge 50$. Observe how the posterior narrows.
 
 **Questions.**
 - How do larger prior values $(\alpha_0,\beta_0)$ change early-stage behavior?
 - If the prior strongly favors high $p$ but the data are unfavorable, how quickly does the posterior adjust?
-- Why is conjugacy (Beta–Bernoulli) pedagogically useful here?
+- Why is conjugacy (Beta–Bernoulli) useful here?
 
 **What to learn from this activity.**
 - Posterior uncertainty **shrinks** with data.
@@ -119,21 +117,21 @@ This tab lets you **run a bandit** with $K$ arms and compare policies.
 
 - **Cumulative Regret**: the curve of $\mathcal{R}(t)$ versus $t$. *Lower is better.* A flatter slope means faster learning/focus on near-optimal arms.
 - **Pulls by Arm**: bar chart with counts $n_k(t)$ for each arm; in good runs the best arm’s bar grows dominant.
-- **History table**: per-round log showing selected arm, reward (0/1), cumulative reward, **best possible** (oracle) reward, and regret.  
-  - **Best possible at $t$** is $t \cdot p_*$ (the app knows $p_*$ to compute regret).
+- **Success vs Failure (stacked bars)**: per arm, shows **Hits** (successes) and **Misses** (failures) so you can see outcome balance and where exploration went.
+- **Per-arm Summary table**: for each arm shows **Pulls**, **Hits**, **Misses**, **Empirical mean** (hits/pulls), **Posterior mean** ($\alpha_k/(\alpha_k+\beta_k)$), **% of pulls**, and (optionally) **True $p$** when revealed.
 
 ## 3.2 Policies
 
 ### (a) $\varepsilon$-Greedy
 - Maintain sample means $\hat{\mu}_k(t)$.
-- With probability $\varepsilon$, **explore** uniformly; with probability $1-\varepsilon$, **exploit** the arm $\arg\max_k \hat{\mu}_k(t)$.
+- With probability $\varepsilon$, **explore** uniformly; with probability $1-\varepsilon$, **exploit** the arm $\arg\max_k\hat{\mu}_k(t)$.
 - Pros: simple baseline.  
 - Cons: fixed exploration may be too much late, too little early.
 
 ### (b) UCB1 (Upper Confidence Bound)
 Choose the arm that maximizes an **optimistic** estimate:
 $$
-\operatorname{UCB1}_k(t) = \hat{\mu}_k(t) + \sqrt{\frac{2\ln t}{n_k(t)}},
+\operatorname{UCB1}_k(t)=\hat{\mu}_k(t)+\sqrt{\frac{2\ln t}{n_k(t)}},
 $$
 where $n_k(t)$ is the number of times arm $k$ has been pulled up to round $t$.
 The confidence bonus **shrinks** as $n_k(t)$ grows.
@@ -144,33 +142,32 @@ The confidence bonus **shrinks** as $n_k(t)$ grows.
 ### (c) Thompson Sampling (TS)
 Maintain a **Beta posterior** per arm:
 $$
-p_k \mid \text{data} \sim \operatorname{Beta}(\alpha_k,\beta_k),
-\qquad
-\alpha_k \leftarrow \alpha_k + \text{successes},\;
-\beta_k \leftarrow \beta_k + \text{failures}.
+p_k\mid\text{data}\sim\operatorname{Beta}(\alpha_k,\beta_k),\qquad
+\alpha_k\leftarrow\alpha_k+\text{successes},\;\beta_k\leftarrow\beta_k+\text{failures}.
 $$
 Each round:
-1. Sample $\tilde{p}_k \sim \operatorname{Beta}(\alpha_k,\beta_k)$ independently for each arm.  
-2. Pull $\arg\max_k \tilde{p}_k$.
+1. Sample $\tilde{p}_k\sim\operatorname{Beta}(\alpha_k,\beta_k)$ independently for each arm.  
+2. Pull $\arg\max_k\tilde{p}_k$.
 
 - Pros: elegant Bayesian decision rule; excellent empirical performance; “probability matching”.  
 - Cons: requires a model and priors; early behavior can be prior-sensitive.
 
 ## 3.3 Activity B — Explore vs. exploit in practice
 
-1. In **Play (Multi-Arm)**, set $K=4$, **Randomize arms**, Horizon $=100$.
-2. Run **$\varepsilon$-Greedy** with $\varepsilon=0.30$ and then with $\varepsilon=0.05$. Compare **Cumulative Regret** and **Pulls by Arm**.
-3. On the same instance (click **Reset** once to fix a new draw), run **UCB1** and **TS**.
+1. In **Play (Multi-Arm)**, set $K=4$, **Randomize arms**, Horizon $=100$. After simulation go to the Replay tab and build a replay to watch how the arms were chosen.
+2. Run **$\varepsilon$-Greedy** with $\varepsilon=0.30$ and then with $\varepsilon=0.05$. Compare **Cumulative Regret**, **Pulls by Arm**, and **Success vs Failure**.
+3. On the same instance (click **Reset** once to fix a new draw), run **UCB1** and **TS**. Inspect the **Per-arm Summary** (empirical vs posterior mean; % pulls).
 
 **Questions.**
-- Which policy locks onto the best arm fastest? What do you see in **Pulls by Arm**?
-- How does increasing $\varepsilon$ change early vs. late performance?
-- Does TS allocate extra pulls to uncertain arms early on? Why would that help?
+- Which policy locks onto the best arm fastest? What do you see in **Pulls by Arm** and **Success vs Failure**?
+- How does increasing $\varepsilon$ change early vs late performance?
+- Do posterior means typically shrink toward empirical means as pulls grow? Why?
 
 **What to learn from this activity.**
 - $\varepsilon$-Greedy uses a fixed exploration dial; performance depends on $\varepsilon$.
 - UCB1 explores where uncertainty remains (optimism).
 - TS balances explore/exploit by sampling from posterior beliefs.
+- Per-arm summaries provide quick diagnostics of allocation quality.
 
 ---
 
@@ -180,17 +177,19 @@ Single runs can be noisy. Replicates provide a **fairer comparison**.
 
 ## 4.1 What the tab computes
 
-For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy multiple times and records **terminal regret** $\mathcal{R}(H)$. It summarizes **mean regret** and **95% intervals** (empirical quantiles).
+For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy multiple times and records **terminal regret** $\mathcal{R}(H)$, then produces:
+- A **mean $\pm$ 95% CI** plot per policy; and
+- A **per-policy summary table** (not per-run) with: $n$, mean, sd, median, 2.5% and 97.5% quantiles of $\mathcal{R}(H)$.
 
 ## 4.2 Activity C — Compare policies with replication
 
 1. In **Compare**, set $K=4$, Horizon $=300$, Replicates $=100$, $\varepsilon=0.1$. Click **Run Comparison**.
-2. Inspect the **mean $\pm$ 95% CI** and the raw table.
-3. Turn off randomization and set arms close together (e.g., $p = [0.56, 0.54, 0.53, 0.50]$). Re-run.
+2. Inspect the **mean $\pm$ 95% CI** plot and the **per-policy summary** table.
+3. Turn off randomization and set arms close together (e.g., $p=[0.56,0.54,0.53,0.50]$). Re-run.
 
 **Questions.**
-- Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs?
-- How do the CIs change when arms are harder to distinguish (smaller gaps)?
+- Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs and quantiles?
+- How do the summaries change when arms are harder to distinguish (smaller gaps)?
 - What happens to regret and pull allocation as $K$ increases?
 
 **What to learn from this activity.**
@@ -199,20 +198,3 @@ For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy mul
 - Replication reduces variance and supports stronger conclusions.
 
 ---
-
-# 5. Interpreting Every App Element
-
-- **“Pulls per click” (Learn tab):** how many iid Bernoulli draws you add before re-plotting the posterior.
-- **“Success” vs. “Failure”:** realized reward $1$ vs. $0$ on a pull.
-- **“Reveal true $p$” (Learn tab):** shows the (hidden) data-generating probability so you can check calibration.
-- **“Horizon” (Play/Compare):** total number of decisions (rounds).
-- **“Cumulative Regret”:** $\mathcal{R}(t)$; lower is better; slope reflects learning speed.
-- **“Pulls by Arm”:** counts $n_k(t)$; the best arm’s bar should dominate as $t$ grows.
-- **“History table”:** per-round log (arm chosen, reward, cumulative reward, oracle best-possible reward $t \cdot p_*$, and regret).
-
-**Questions.**
-- If **Pulls by Arm** shows heavy sampling of an obviously weak arm late in the run, what might be wrong with your policy/parameters?
-- If **Cumulative Regret** bends downward sharply mid-run, what event likely occurred?
-
----
-

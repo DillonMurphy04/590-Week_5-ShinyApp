@@ -103,7 +103,6 @@ window.Quarto = {
   <li><a href="#what-the-tab-computes" id="toc-what-the-tab-computes" class="nav-link" data-scroll-target="#what-the-tab-computes">4.1 What the tab computes</a></li>
   <li><a href="#activity-c-compare-policies-with-replication" id="toc-activity-c-compare-policies-with-replication" class="nav-link" data-scroll-target="#activity-c-compare-policies-with-replication">4.2 Activity C — Compare policies with replication</a></li>
   </ul></li>
-  <li><a href="#interpreting-every-app-element" id="toc-interpreting-every-app-element" class="nav-link" data-scroll-target="#interpreting-every-app-element">5. Interpreting Every App Element</a></li>
   </ul>
 </nav>
 </div>
@@ -135,7 +134,7 @@ window.Quarto = {
 
 
 <blockquote class="blockquote">
-<p>To start open run the Shiny app <code>app.R</code>.</p>
+<p>To start run the Shiny app <code>app.R</code>.</p>
 </blockquote>
 <hr>
 <section id="the-multi-armed-bandit-problem" class="level1">
@@ -143,21 +142,20 @@ window.Quarto = {
 <section id="formal-setup" class="level2">
 <h2 class="anchored" data-anchor-id="formal-setup">1.1 Formal setup</h2>
 <ul>
-<li>We have <span class="math inline">\(K\)</span> arms (options), indexed <span class="math inline">\(k = 1, \dots, K\)</span>.</li>
-<li>Each arm <span class="math inline">\(k\)</span> yields a binary reward <span class="math inline">\(R_{k} \in \{0,1\}\)</span> with <strong>unknown</strong> success probability <span class="math inline">\(p_k \in (0,1)\)</span>.</li>
-<li>At round <span class="math inline">\(t = 1,2,\dots,T\)</span>, we <strong>choose</strong> an arm <span class="math inline">\(A_t \in \{1,\dots,K\}\)</span>, observe reward <span class="math inline">\(R_{A_t,t}\)</span>, and update our strategy.</li>
+<li>We have <span class="math inline">\(K\)</span> arms (options), indexed <span class="math inline">\(k=1,\dots,K\)</span>.</li>
+<li>Each arm <span class="math inline">\(k\)</span> yields a binary reward <span class="math inline">\(R_{k}\in\{0,1\}\)</span> with <strong>unknown</strong> success probability <span class="math inline">\(p_k\in(0,1)\)</span>.</li>
+<li>At round <span class="math inline">\(t=1,2,\dots,T\)</span>, we <strong>choose</strong> an arm <span class="math inline">\(A_t\in\{1,\dots,K\}\)</span>, observe reward <span class="math inline">\(R_{A_t,t}\)</span>, and update our strategy.</li>
 </ul>
 <p><strong>Objective.</strong> Maximize <strong>cumulative reward</strong> or equivalently <strong>minimize regret</strong> relative to the best arm <span class="math display">\[
-p_* = \max_{k} p_k,
-\qquad
-k_* \in \operatorname*{arg\,max}_{k} p_k.
+p_*=\max_{k}p_k,\qquad
+k_*\in\operatorname*{arg\,max}_{k}p_k.
 \]</span></p>
 <ul>
 <li><p><strong>Cumulative reward</strong> after <span class="math inline">\(T\)</span> rounds: <span class="math display">\[
-S_T = \sum_{t=1}^{T} R_{A_t,t}.
+S_T=\sum_{t=1}^{T}R_{A_t,t}.
 \]</span></p></li>
 <li><p><strong>Cumulative regret</strong> after <span class="math inline">\(T\)</span> rounds: <span class="math display">\[
-\mathcal{R}(T) = T\,p_* - \sum_{t=1}^{T} R_{A_t,t}.
+\mathcal{R}(T)=T\,p_*-\sum_{t=1}^{T}R_{A_t,t}.
 \]</span></p></li>
 </ul>
 <p><strong>Questions (before opening the app).</strong> - If you knew <span class="math inline">\(p_k\)</span> for all <span class="math inline">\(k\)</span>, what would you do at each round? - If you <em>don’t</em> know <span class="math inline">\(p_k\)</span>, why can a purely exploitative strategy be risky? - Propose a way to quantify how “costly” learning is.</p>
@@ -180,18 +178,17 @@ S_T = \sum_{t=1}^{T} R_{A_t,t}.
 <h2 class="anchored" data-anchor-id="model-and-posterior">2.1 Model and posterior</h2>
 <ul>
 <li><p><strong>Likelihood.</strong> If we observe <span class="math inline">\(s\)</span> successes and <span class="math inline">\(f\)</span> failures from one arm, <span class="math display">\[
-R_1,\dots,R_n \mid p \sim \operatorname{Bernoulli}(p),
-\qquad n = s + f.
+R_1,\dots,R_n\mid p\sim\operatorname{Bernoulli}(p),\qquad n=s+f.
 \]</span></p></li>
-<li><p><strong>Conjugate prior.</strong> <span class="math inline">\(p \sim \operatorname{Beta}(\alpha_0,\beta_0)\)</span>.</p></li>
+<li><p><strong>Conjugate prior.</strong> <span class="math inline">\(p\sim\operatorname{Beta}(\alpha_0,\beta_0)\)</span>.</p></li>
 <li><p><strong>Posterior.</strong> <span class="math display">\[
-p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
+p\mid\text{data}\sim\operatorname{Beta}(\alpha_0+s,\;\beta_0+f).
 \]</span></p></li>
 <li><p><strong>Posterior mean</strong> and a <span class="math inline">\(100(1-\gamma)\%\)</span> <strong>credible interval</strong>: <span class="math display">\[
-\mathbb{E}[p \mid \text{data}] =
-\frac{\alpha_0 + s}{\alpha_0 + \beta_0 + s + f},
+\mathbb{E}[p\mid\text{data}]
+=\frac{\alpha_0+s}{\alpha_0+\beta_0+s+f},
 \qquad
-\text{CI}_{1-\gamma} = [\, q_{\gamma/2},\; q_{1-\gamma/2} \,],
+\text{CI}_{1-\gamma}=[\,q_{\gamma/2},\;q_{1-\gamma/2}\,],
 \]</span> where <span class="math inline">\(q_q\)</span> is the <span class="math inline">\(q\)</span>-quantile of <span class="math inline">\(\operatorname{Beta}(\alpha_0+s,\beta_0+f)\)</span>.</p></li>
 </ul>
 </section>
@@ -209,9 +206,9 @@ p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
 <li>Open <strong>Learn (1-Arm)</strong>. Set prior <span class="math inline">\(\alpha_0=\beta_0=1\)</span> and <strong>hide</strong> the true <span class="math inline">\(p\)</span>.</li>
 <li>Click <strong>Pull the Arm</strong> 10 times (with “Pulls per click” set to 1). Record <span class="math inline">\(s\)</span>, <span class="math inline">\(f\)</span>, and the posterior mean.</li>
 <li>Reveal the true <span class="math inline">\(p\)</span>. Did your <span class="math inline">\(95\%\)</span> credible interval contain it?</li>
-<li>Continue pulling until total pulls <span class="math inline">\(n \ge 50\)</span>. Observe how the posterior narrows.</li>
+<li>Continue pulling until total pulls <span class="math inline">\(n\ge 50\)</span>. Observe how the posterior narrows.</li>
 </ol>
-<p><strong>Questions.</strong> - How do larger prior values <span class="math inline">\((\alpha_0,\beta_0)\)</span> change early-stage behavior? - If the prior strongly favors high <span class="math inline">\(p\)</span> but the data are unfavorable, how quickly does the posterior adjust? - Why is conjugacy (Beta–Bernoulli) pedagogically useful here?</p>
+<p><strong>Questions.</strong> - How do larger prior values <span class="math inline">\((\alpha_0,\beta_0)\)</span> change early-stage behavior? - If the prior strongly favors high <span class="math inline">\(p\)</span> but the data are unfavorable, how quickly does the posterior adjust? - Why is conjugacy (Beta–Bernoulli) useful here?</p>
 <p><strong>What to learn from this activity.</strong> - Posterior uncertainty <strong>shrinks</strong> with data. - The posterior mean is a smoothed estimate (data + prior). - This exact updating mechanism underlies <strong>Thompson Sampling</strong> in multi-arm settings.</p>
 <hr>
 </section>
@@ -224,10 +221,8 @@ p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
 <ul>
 <li><strong>Cumulative Regret</strong>: the curve of <span class="math inline">\(\mathcal{R}(t)\)</span> versus <span class="math inline">\(t\)</span>. <em>Lower is better.</em> A flatter slope means faster learning/focus on near-optimal arms.</li>
 <li><strong>Pulls by Arm</strong>: bar chart with counts <span class="math inline">\(n_k(t)\)</span> for each arm; in good runs the best arm’s bar grows dominant.</li>
-<li><strong>History table</strong>: per-round log showing selected arm, reward (0/1), cumulative reward, <strong>best possible</strong> (oracle) reward, and regret.
-<ul>
-<li><strong>Best possible at <span class="math inline">\(t\)</span></strong> is <span class="math inline">\(t \cdot p_*\)</span> (the app knows <span class="math inline">\(p_*\)</span> to compute regret).</li>
-</ul></li>
+<li><strong>Success vs Failure (stacked bars)</strong>: per arm, shows <strong>Hits</strong> (successes) and <strong>Misses</strong> (failures) so you can see outcome balance and where exploration went.</li>
+<li><strong>Per-arm Summary table</strong>: for each arm shows <strong>Pulls</strong>, <strong>Hits</strong>, <strong>Misses</strong>, <strong>Empirical mean</strong> (hits/pulls), <strong>Posterior mean</strong> (<span class="math inline">\(\alpha_k/(\alpha_k+\beta_k)\)</span>), <strong>% of pulls</strong>, and (optionally) <strong>True <span class="math inline">\(p\)</span></strong> when revealed.</li>
 </ul>
 </section>
 <section id="policies" class="level2">
@@ -236,7 +231,7 @@ p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
 <h3 class="anchored" data-anchor-id="a-varepsilon-greedy">(a) <span class="math inline">\(\varepsilon\)</span>-Greedy</h3>
 <ul>
 <li>Maintain sample means <span class="math inline">\(\hat{\mu}_k(t)\)</span>.</li>
-<li>With probability <span class="math inline">\(\varepsilon\)</span>, <strong>explore</strong> uniformly; with probability <span class="math inline">\(1-\varepsilon\)</span>, <strong>exploit</strong> the arm <span class="math inline">\(\arg\max_k \hat{\mu}_k(t)\)</span>.</li>
+<li>With probability <span class="math inline">\(\varepsilon\)</span>, <strong>explore</strong> uniformly; with probability <span class="math inline">\(1-\varepsilon\)</span>, <strong>exploit</strong> the arm <span class="math inline">\(\arg\max_k\hat{\mu}_k(t)\)</span>.</li>
 <li>Pros: simple baseline.<br>
 </li>
 <li>Cons: fixed exploration may be too much late, too little early.</li>
@@ -245,7 +240,7 @@ p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
 <section id="b-ucb1-upper-confidence-bound" class="level3">
 <h3 class="anchored" data-anchor-id="b-ucb1-upper-confidence-bound">(b) UCB1 (Upper Confidence Bound)</h3>
 <p>Choose the arm that maximizes an <strong>optimistic</strong> estimate: <span class="math display">\[
-\operatorname{UCB1}_k(t) = \hat{\mu}_k(t) + \sqrt{\frac{2\ln t}{n_k(t)}},
+\operatorname{UCB1}_k(t)=\hat{\mu}_k(t)+\sqrt{\frac{2\ln t}{n_k(t)}},
 \]</span> where <span class="math inline">\(n_k(t)\)</span> is the number of times arm <span class="math inline">\(k\)</span> has been pulled up to round <span class="math inline">\(t\)</span>. The confidence bonus <strong>shrinks</strong> as <span class="math inline">\(n_k(t)\)</span> grows.</p>
 <ul>
 <li>Pros: strong regret guarantees in iid Bernoulli settings.<br>
@@ -256,12 +251,10 @@ p \mid \text{data} \sim \operatorname{Beta}(\alpha_0 + s,\; \beta_0 + f).
 <section id="c-thompson-sampling-ts" class="level3">
 <h3 class="anchored" data-anchor-id="c-thompson-sampling-ts">(c) Thompson Sampling (TS)</h3>
 <p>Maintain a <strong>Beta posterior</strong> per arm: <span class="math display">\[
-p_k \mid \text{data} \sim \operatorname{Beta}(\alpha_k,\beta_k),
-\qquad
-\alpha_k \leftarrow \alpha_k + \text{successes},\;
-\beta_k \leftarrow \beta_k + \text{failures}.
-\]</span> Each round: 1. Sample <span class="math inline">\(\tilde{p}_k \sim \operatorname{Beta}(\alpha_k,\beta_k)\)</span> independently for each arm.<br>
-2. Pull <span class="math inline">\(\arg\max_k \tilde{p}_k\)</span>.</p>
+p_k\mid\text{data}\sim\operatorname{Beta}(\alpha_k,\beta_k),\qquad
+\alpha_k\leftarrow\alpha_k+\text{successes},\;\beta_k\leftarrow\beta_k+\text{failures}.
+\]</span> Each round: 1. Sample <span class="math inline">\(\tilde{p}_k\sim\operatorname{Beta}(\alpha_k,\beta_k)\)</span> independently for each arm.<br>
+2. Pull <span class="math inline">\(\arg\max_k\tilde{p}_k\)</span>.</p>
 <ul>
 <li>Pros: elegant Bayesian decision rule; excellent empirical performance; “probability matching”.<br>
 </li>
@@ -272,12 +265,12 @@ p_k \mid \text{data} \sim \operatorname{Beta}(\alpha_k,\beta_k),
 <section id="activity-b-explore-vs.-exploit-in-practice" class="level2">
 <h2 class="anchored" data-anchor-id="activity-b-explore-vs.-exploit-in-practice">3.3 Activity B — Explore vs.&nbsp;exploit in practice</h2>
 <ol type="1">
-<li>In <strong>Play (Multi-Arm)</strong>, set <span class="math inline">\(K=4\)</span>, <strong>Randomize arms</strong>, Horizon <span class="math inline">\(=100\)</span>.</li>
-<li>Run <strong><span class="math inline">\(\varepsilon\)</span>-Greedy</strong> with <span class="math inline">\(\varepsilon=0.30\)</span> and then with <span class="math inline">\(\varepsilon=0.05\)</span>. Compare <strong>Cumulative Regret</strong> and <strong>Pulls by Arm</strong>.</li>
-<li>On the same instance (click <strong>Reset</strong> once to fix a new draw), run <strong>UCB1</strong> and <strong>TS</strong>.</li>
+<li>In <strong>Play (Multi-Arm)</strong>, set <span class="math inline">\(K=4\)</span>, <strong>Randomize arms</strong>, Horizon <span class="math inline">\(=100\)</span>. After simulation go to the Replay tab and build a replay to watch how the arms were chosen.</li>
+<li>Run <strong><span class="math inline">\(\varepsilon\)</span>-Greedy</strong> with <span class="math inline">\(\varepsilon=0.30\)</span> and then with <span class="math inline">\(\varepsilon=0.05\)</span>. Compare <strong>Cumulative Regret</strong>, <strong>Pulls by Arm</strong>, and <strong>Success vs Failure</strong>.</li>
+<li>On the same instance (click <strong>Reset</strong> once to fix a new draw), run <strong>UCB1</strong> and <strong>TS</strong>. Inspect the <strong>Per-arm Summary</strong> (empirical vs posterior mean; % pulls).</li>
 </ol>
-<p><strong>Questions.</strong> - Which policy locks onto the best arm fastest? What do you see in <strong>Pulls by Arm</strong>? - How does increasing <span class="math inline">\(\varepsilon\)</span> change early vs.&nbsp;late performance? - Does TS allocate extra pulls to uncertain arms early on? Why would that help?</p>
-<p><strong>What to learn from this activity.</strong> - <span class="math inline">\(\varepsilon\)</span>-Greedy uses a fixed exploration dial; performance depends on <span class="math inline">\(\varepsilon\)</span>. - UCB1 explores where uncertainty remains (optimism). - TS balances explore/exploit by sampling from posterior beliefs.</p>
+<p><strong>Questions.</strong> - Which policy locks onto the best arm fastest? What do you see in <strong>Pulls by Arm</strong> and <strong>Success vs Failure</strong>? - How does increasing <span class="math inline">\(\varepsilon\)</span> change early vs late performance? - Do posterior means typically shrink toward empirical means as pulls grow? Why?</p>
+<p><strong>What to learn from this activity.</strong> - <span class="math inline">\(\varepsilon\)</span>-Greedy uses a fixed exploration dial; performance depends on <span class="math inline">\(\varepsilon\)</span>. - UCB1 explores where uncertainty remains (optimism). - TS balances explore/exploit by sampling from posterior beliefs. - Per-arm summaries provide quick diagnostics of allocation quality.</p>
 <hr>
 </section>
 </section>
@@ -286,33 +279,19 @@ p_k \mid \text{data} \sim \operatorname{Beta}(\alpha_k,\beta_k),
 <p>Single runs can be noisy. Replicates provide a <strong>fairer comparison</strong>.</p>
 <section id="what-the-tab-computes" class="level2">
 <h2 class="anchored" data-anchor-id="what-the-tab-computes">4.1 What the tab computes</h2>
-<p>For a fixed horizon <span class="math inline">\(H\)</span> and arm configuration <span class="math inline">\(\{p_k\}\)</span>, it runs each policy multiple times and records <strong>terminal regret</strong> <span class="math inline">\(\mathcal{R}(H)\)</span>. It summarizes <strong>mean regret</strong> and <strong>95% intervals</strong> (empirical quantiles).</p>
+<p>For a fixed horizon <span class="math inline">\(H\)</span> and arm configuration <span class="math inline">\(\{p_k\}\)</span>, it runs each policy multiple times and records <strong>terminal regret</strong> <span class="math inline">\(\mathcal{R}(H)\)</span>, then produces: - A <strong>mean <span class="math inline">\(\pm\)</span> 95% CI</strong> plot per policy; and - A <strong>per-policy summary table</strong> (not per-run) with: <span class="math inline">\(n\)</span>, mean, sd, median, 2.5% and 97.5% quantiles of <span class="math inline">\(\mathcal{R}(H)\)</span>.</p>
 </section>
 <section id="activity-c-compare-policies-with-replication" class="level2">
 <h2 class="anchored" data-anchor-id="activity-c-compare-policies-with-replication">4.2 Activity C — Compare policies with replication</h2>
 <ol type="1">
 <li>In <strong>Compare</strong>, set <span class="math inline">\(K=4\)</span>, Horizon <span class="math inline">\(=300\)</span>, Replicates <span class="math inline">\(=100\)</span>, <span class="math inline">\(\varepsilon=0.1\)</span>. Click <strong>Run Comparison</strong>.</li>
-<li>Inspect the <strong>mean <span class="math inline">\(\pm\)</span> 95% CI</strong> and the raw table.</li>
-<li>Turn off randomization and set arms close together (e.g., <span class="math inline">\(p = [0.56, 0.54, 0.53, 0.50]\)</span>). Re-run.</li>
+<li>Inspect the <strong>mean <span class="math inline">\(\pm\)</span> 95% CI</strong> plot and the <strong>per-policy summary</strong> table.</li>
+<li>Turn off randomization and set arms close together (e.g., <span class="math inline">\(p=[0.56,0.54,0.53,0.50]\)</span>). Re-run.</li>
 </ol>
-<p><strong>Questions.</strong> - Which policy has the <strong>lowest mean terminal regret</strong>? Are differences practically meaningful given the CIs? - How do the CIs change when arms are harder to distinguish (smaller gaps)? - What happens to regret and pull allocation as <span class="math inline">\(K\)</span> increases?</p>
+<p><strong>Questions.</strong> - Which policy has the <strong>lowest mean terminal regret</strong>? Are differences practically meaningful given the CIs and quantiles? - How do the summaries change when arms are harder to distinguish (smaller gaps)? - What happens to regret and pull allocation as <span class="math inline">\(K\)</span> increases?</p>
 <p><strong>What to learn from this activity.</strong> - Harder problems (small gaps) increase regret for <strong>every</strong> policy. - TS/UCB1 typically dominate <span class="math inline">\(\varepsilon\)</span>-Greedy baselines. - Replication reduces variance and supports stronger conclusions.</p>
 <hr>
 </section>
-</section>
-<section id="interpreting-every-app-element" class="level1">
-<h1>5. Interpreting Every App Element</h1>
-<ul>
-<li><strong>“Pulls per click” (Learn tab):</strong> how many iid Bernoulli draws you add before re-plotting the posterior.</li>
-<li><strong>“Success” vs.&nbsp;“Failure”:</strong> realized reward <span class="math inline">\(1\)</span> vs.&nbsp;<span class="math inline">\(0\)</span> on a pull.</li>
-<li><strong>“Reveal true <span class="math inline">\(p\)</span>” (Learn tab):</strong> shows the (hidden) data-generating probability so you can check calibration.</li>
-<li><strong>“Horizon” (Play/Compare):</strong> total number of decisions (rounds).</li>
-<li><strong>“Cumulative Regret”:</strong> <span class="math inline">\(\mathcal{R}(t)\)</span>; lower is better; slope reflects learning speed.</li>
-<li><strong>“Pulls by Arm”:</strong> counts <span class="math inline">\(n_k(t)\)</span>; the best arm’s bar should dominate as <span class="math inline">\(t\)</span> grows.</li>
-<li><strong>“History table”:</strong> per-round log (arm chosen, reward, cumulative reward, oracle best-possible reward <span class="math inline">\(t \cdot p_*\)</span>, and regret).</li>
-</ul>
-<p><strong>Questions.</strong> - If <strong>Pulls by Arm</strong> shows heavy sampling of an obviously weak arm late in the run, what might be wrong with your policy/parameters? - If <strong>Cumulative Regret</strong> bends downward sharply mid-run, what event likely occurred?</p>
-<hr>
 </section>
 
 </main>
