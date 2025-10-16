@@ -136,4 +136,83 @@ $$
 \operatorname{UCB1}_k(t) = \hat{\mu}_k(t) + \sqrt{\frac{2\ln t}{n_k(t)}},
 $$
 where $n_k(t)$ is the number of times arm $k$ has been pulled up to round $t$.
-The confidence bonus **shrinks** as $n_k(t)$_
+The confidence bonus **shrinks** as $n_k(t)$ grows.
+
+- Pros: strong regret guarantees in iid Bernoulli settings.  
+- Cons: can be conservative or mis-calibrated outside assumptions.
+
+### (c) Thompson Sampling (TS)
+Maintain a **Beta posterior** per arm:
+$$
+p_k \mid \text{data} \sim \operatorname{Beta}(\alpha_k,\beta_k),
+\qquad
+\alpha_k \leftarrow \alpha_k + \text{successes},\;
+\beta_k \leftarrow \beta_k + \text{failures}.
+$$
+Each round:
+1. Sample $\tilde{p}_k \sim \operatorname{Beta}(\alpha_k,\beta_k)$ independently for each arm.  
+2. Pull $\arg\max_k \tilde{p}_k$.
+
+- Pros: elegant Bayesian decision rule; excellent empirical performance; “probability matching”.  
+- Cons: requires a model and priors; early behavior can be prior-sensitive.
+
+## 3.3 Activity B — Explore vs. exploit in practice
+
+1. In **Play (Multi-Arm)**, set $K=4$, **Randomize arms**, Horizon $=100$.
+2. Run **$\varepsilon$-Greedy** with $\varepsilon=0.30$ and then with $\varepsilon=0.05$. Compare **Cumulative Regret** and **Pulls by Arm**.
+3. On the same instance (click **Reset** once to fix a new draw), run **UCB1** and **TS**.
+
+**Questions.**
+- Which policy locks onto the best arm fastest? What do you see in **Pulls by Arm**?
+- How does increasing $\varepsilon$ change early vs. late performance?
+- Does TS allocate extra pulls to uncertain arms early on? Why would that help?
+
+**What to learn from this activity.**
+- $\varepsilon$-Greedy uses a fixed exploration dial; performance depends on $\varepsilon$.
+- UCB1 explores where uncertainty remains (optimism).
+- TS balances explore/exploit by sampling from posterior beliefs.
+
+---
+
+# 4. Replicated Evaluation (Compare tab)
+
+Single runs can be noisy. Replicates provide a **fairer comparison**.
+
+## 4.1 What the tab computes
+
+For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy multiple times and records **terminal regret** $\mathcal{R}(H)$. It summarizes **mean regret** and **95% intervals** (empirical quantiles).
+
+## 4.2 Activity C — Compare policies with replication
+
+1. In **Compare**, set $K=4$, Horizon $=300$, Replicates $=100$, $\varepsilon=0.1$. Click **Run Comparison**.
+2. Inspect the **mean $\pm$ 95% CI** and the raw table.
+3. Turn off randomization and set arms close together (e.g., $p = [0.56, 0.54, 0.53, 0.50]$). Re-run.
+
+**Questions.**
+- Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs?
+- How do the CIs change when arms are harder to distinguish (smaller gaps)?
+- What happens to regret and pull allocation as $K$ increases?
+
+**What to learn from this activity.**
+- Harder problems (small gaps) increase regret for **every** policy.
+- TS/UCB1 typically dominate $\varepsilon$-Greedy baselines.
+- Replication reduces variance and supports stronger conclusions.
+
+---
+
+# 5. Interpreting Every App Element
+
+- **“Pulls per click” (Learn tab):** how many iid Bernoulli draws you add before re-plotting the posterior.
+- **“Success” vs. “Failure”:** realized reward $1$ vs. $0$ on a pull.
+- **“Reveal true $p$” (Learn tab):** shows the (hidden) data-generating probability so you can check calibration.
+- **“Horizon” (Play/Compare):** total number of decisions (rounds).
+- **“Cumulative Regret”:** $\mathcal{R}(t)$; lower is better; slope reflects learning speed.
+- **“Pulls by Arm”:** counts $n_k(t)$; the best arm’s bar should dominate as $t$ grows.
+- **“History table”:** per-round log (arm chosen, reward, cumulative reward, oracle best-possible reward $t \cdot p_*$, and regret).
+
+**Questions.**
+- If **Pulls by Arm** shows heavy sampling of an obviously weak arm late in the run, what might be wrong with your policy/parameters?
+- If **Cumulative Regret** bends downward sharply mid-run, what event likely occurred?
+
+---
+
