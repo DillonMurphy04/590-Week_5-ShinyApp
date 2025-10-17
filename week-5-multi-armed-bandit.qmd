@@ -1,5 +1,5 @@
 ---
-title: "Adaptive Decision Analysis: Multi-Armed Bandits"
+title: "Adaptive Decision Analysis: FDR-Controlling Procedure and Multi-Armed Bandits"
 author: "Dillon, Hannah, and Tyler"
 format:
   html:
@@ -10,191 +10,496 @@ format:
     smooth-scroll: true
 editor: visual
 fontsize: 12pt
+execute:
+  warning: false
 ---
+# Part 1: False Discovery Rate Controlling Procedure
+
+
+## Introduction/Background
+***Exploring False Discovery Rate (FDR) Control***
+
+In this activity, we’ll explore the concept of the False Discovery Rate (FDR) introduced by Benjamini and Hochberg (1995). When we perform many hypothesis tests at once, some tests will appear “significant” just by chance — even when assuming all null hypotheses are true. 
+
+- Traditional methods like the Bonferroni correction are too conservative and aim to control the probability of any false positives (the family-wise error rate, FWER), often reducing power.
+
+- Also known as the Benjamini–Hochberg (BH) procedure, it takes a different approach: it controls the expected proportion of false discoveries among all rejected hypotheses. This allows for a better balance between finding true effects and limiting false ones.
+
+## Activity Objective
+
+In this R activity, you will visualize the distribution of p-values that arise from multiple testing scenarios, and see how the BH procedure identifies a data-driven cutoff to control FDR. The cut-off being "data-driven" is what makes BH fall under adaptive decision analysis.
+
+- By comparing the unadjusted and adjusted results, you will get some intuition on how FDR control adapts to the evidence in the data.
+
+# 1. Looking at Multiple Testing
+
+```{r}
+#| message: false
+#| include: false
+# Load libraries
+library(tidyverse)
+```
+
+
+## 1.1 The Null Distribution of p-values
+
+Parameters: $\mu_0 =98.6, n = 4, sigma = 1 ,\alpha_0 = 0.05$
+
+```{r}
+# Parameters
+mu0 <- 98.6
+n <- 4
+sigma <- 1
+alpha0 <- 0.05
+
+#   Step 1: Simulate data under H0  
+# Each sample has size n, sampled from Normal(mu0, sigma)
+n_sims <- 10000
+samples <- replicate(n_sims, rnorm(n, mean = mu0, sd = sigma))
+
+#   Step 2: Compute two-sided p-values for each simulated sample  
+sample_means <- colMeans(samples)
+z_vals <- abs(sample_means - mu0) / (sigma / sqrt(n))
+p_values <- 2 * pnorm(-z_vals)
+
+#   Step 3: Create data frame for plotting  
+df <- tibble(p_value = p_values)
+
+#   Step 4: Plot p-value distribution vs Uniform(0,1)  
+ggplot(df, aes(x = p_value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "skyblue", color = "white", alpha = 0.7) +
+  geom_hline(yintercept = 1, color = "black", linetype = "dashed") +
+  geom_vline(xintercept = alpha0, color = "orange", size = 1) +
+  geom_rect(aes(xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf),
+            fill = "gray", alpha = 0.3, inherit.aes = FALSE) +
+  labs(
+    title = "Distribution of p-values under H0",
+    x = "p-value",
+    y = "Density",
+    subtitle = paste0("α = ", alpha0, " (gray area = rejection region)")
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+
+## 1.2 Alternative distribution of the p-value 
+- Now we'll be assuming the alternative hypothesis is true, with $\mu_1 = 97.5$.
+```{r}
+# Parameters
+mu0 <- 98.6      # Null hypothesis mean
+mu1 <- 97.5      # True mean under H1
+n <- 4
+sigma <- 1
+alpha0 <- 0.05
+n_sims <- 10000
+
+#   Step 1: Simulate data under H1  
+samples <- replicate(n_sims, rnorm(n, mean = mu1, sd = sigma))
+
+#   Step 2: Compute two-sided p-values (standardized under H0)  
+sample_means <- colMeans(samples)
+z_vals <- abs(sample_means - mu0) / (sigma / sqrt(n))
+p_values <- 2 * pnorm(-z_vals)
+
+#   Step 3: Create tibble for plotting  
+df <- tibble(p_value = p_values)
+
+#   Step 4: Plot p-value distribution under H1  
+ggplot(df, aes(x = p_value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30,
+                 fill = "tomato", color = "white", alpha = 0.7) +
+  geom_vline(xintercept = alpha0, color = "orange", size = 1) +
+  geom_rect(aes(xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf),
+            fill = "gray", alpha = 0.3, inherit.aes = FALSE) +
+  labs(
+    title = expression("Distribution of p-values under " ~ H[1]),
+    subtitle = paste0("α = ", alpha0, " (gray area = rejection region)"),
+    x = "p-value",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14)
+
+```
+
+
+## 1.3 Multiple Tests - No correction
+
+
+```{r}
+#   parameters  
+m      <- 1000
+mu0    <- 98.6
+mu1    <- 97.5
+p1     <- 0.10
+n      <- 4
+sigma  <- 1
+alpha0 <- 0.05   # set your threshold
+
+set.seed(123)    # for reproducibility (optional)
+
+#   simulate I ~ Bernoulli(p1) and sample X ~ Normal(mu_i, sigma)^n, m times  
+# Vectorized + fast
+I_vec  <- rbinom(m, size = 1, prob = p1)
+mu_vec <- if_else(I_vec == 0, mu0, mu1)
+
+# Draw n observations per replicate with the appropriate mean
+X_mat  <- matrix(
+  rnorm(m * n, mean = rep(mu_vec, each = n), sd = sigma),
+  nrow = m, byrow = TRUE
+)
+
+# p-values under H0: mu = mu0
+xbar   <- rowMeans(X_mat)
+z      <- abs(xbar - mu0) / (sigma / sqrt(n))
+pvals  <- 2 * pnorm(-z)
+
+sim_df <- tibble(I = I_vec, p_value = pvals)
+
+# count number of rejections at alpha0
+R <- sum(sim_df$p_value <= alpha0)
+
+#   plot: histogram with 20 bins (counts), vertical line at alpha0, shaded [0, alpha0]  
+ggplot(sim_df, aes(x = p_value)) +
+  # shaded region first so it's behind the bars
+  annotate("rect", xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf,
+           alpha = 0.5, fill = "grey70") +
+  geom_histogram(bins = 20, boundary = 0) +   # default y is count (not normalized)
+  geom_vline(xintercept = alpha0, color = "orange", linewidth = 1) +
+  labs(x = "p-value", y = "Count",
+       title = "Simulated p-values under mixture of H0 and H1",
+       subtitle = paste0("alpha cutoff = 0.05, number of rejections = ",R)) +
+  theme_minimal()
+
+```
+
+## 1.4 Benjamini-Hochberg Procedure
+
+- We are looking at a two-sided alternative hypothesis test for each of the m = 1000 hypotheses.
+- The BH procedure fixes a desired FDR level, in this case we specify q = 0.10
+
+```{r}
+# Parameters
+m           <- 1000     # number of hypotheses
+mu0         <- 98.6
+mu1         <- 97.5
+p1          <- 0.10     # fraction under H1
+n_per_test  <- 4        # per-hypothesis sample size
+sigma       <- 1
+q           <- 0.10     # BH FDR level
+
+set.seed(123)
+
+# Simulate truth and data
+I_vec  <- rbinom(m, size = 1, prob = p1)                # 1 = H1, 0 = H0
+mu_vec <- if_else(I_vec == 1, mu1, mu0)
+
+X_mat <- matrix(
+  rnorm(m * n_per_test, mean = rep(mu_vec, each = n_per_test), sd = sigma),
+  nrow = m, byrow = TRUE
+)
+
+# Two-sided z-test p-values vs H0: mu = mu0
+xbar <- rowMeans(X_mat)
+z    <- abs(xbar - mu0) / (sigma / sqrt(n_per_test))
+pval <- 2 * pnorm(-z)
+
+sim_df <- tibble(
+  id     = seq_len(m),
+  I      = I_vec,
+  pvalue = pval
+)
+
+# BH (step-up) procedure
+bh_tbl <- sim_df %>%
+  arrange(pvalue) %>%
+  mutate(
+    rank   = row_number(),
+    thresh = (rank / m) * q,
+    keep   = pvalue <= thresh
+  )
+
+k_max <- if (any(bh_tbl$keep)) max(which(bh_tbl$keep)) else 0
+t_BH  <- if (k_max > 0) bh_tbl$pvalue[k_max] else 0
+
+res_df <- sim_df %>%
+  mutate(reject = pvalue <= t_BH)
+
+# Summary
+R  <- sum(res_df$reject)
+V  <- sum(res_df$reject & res_df$I == 0)
+S  <- sum(res_df$reject & res_df$I == 1)
+m0 <- sum(res_df$I == 0)
+m1 <- sum(res_df$I == 1)
+
+FDP   <- if (R > 0) V / R else 0
+Power <- if (m1 > 0) S / m1 else NA_real_
+
+tibble(m, q, m0, m1, R, S, V, FDP, Power, t_BH) %>% print()
+
+# Plot
+ggplot(res_df, aes(x = pvalue)) +
+  annotate("rect", xmin = 0, xmax = t_BH, ymin = 0, ymax = Inf,
+           alpha = 0.4, fill = "grey70") +
+  geom_histogram(bins = 20, boundary = 0) +
+  geom_vline(xintercept = t_BH, color = "orange", linewidth = 1) +
+  labs(
+    title = "P-values with BH cutoff",
+    subtitle = paste0("q = ", q, ", cutoff t_BH = ", signif(t_BH, 3),
+                      ", rejections R = ", R),
+    x = "p-value", y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+
+
+## 1.5 Comparing BH to Bonferroni
+```{r}
+library(tidyverse)
+
+# Parameters
+m           <- 1000      # number of hypotheses
+mu0         <- 98.6
+mu1         <- 97.5
+p1          <- 0.10      # fraction under H1
+n_per_test  <- 4         # per-hypothesis sample size
+sigma       <- 1
+alpha       <- 0.05      # family-wise error rate target (Bonferroni)
+q           <- 0.10      # FDR level for BH (optional comparison)
+
+set.seed(123)
+
+# Simulate truth and data
+I_vec  <- rbinom(m, size = 1, prob = p1)                # 1 = H1, 0 = H0
+mu_vec <- if_else(I_vec == 1, mu1, mu0)
+
+X_mat <- matrix(
+  rnorm(m * n_per_test, mean = rep(mu_vec, each = n_per_test), sd = sigma),
+  nrow = m, byrow = TRUE
+)
+
+# Two-sided z-test p-values vs H0: mu = mu0
+xbar <- rowMeans(X_mat)
+z    <- abs(xbar - mu0) / (sigma / sqrt(n_per_test))
+pval <- 2 * pnorm(-z)
+
+sim_df <- tibble(
+  id     = seq_len(m),
+  I      = I_vec,
+  pvalue = pval
+)
+
+# Bonferroni cutoff and rejections
+t_Bonf <- alpha / m
+res_bonf <- sim_df %>% mutate(reject_bonf = pvalue <= t_Bonf)
+
+# Optional BH cutoff and rejections (to show contrast)
+bh_tbl <- sim_df %>%
+  arrange(pvalue) %>%
+  mutate(rank = row_number(),
+         thresh = (rank / m) * q,
+         keep = pvalue <= thresh)
+
+k_max <- if (any(bh_tbl$keep)) max(which(bh_tbl$keep)) else 0
+t_BH  <- if (k_max > 0) bh_tbl$pvalue[k_max] else 0
+res_bh <- sim_df %>% mutate(reject_bh = pvalue <= t_BH)
+
+# Quick summary
+R_bonf <- sum(res_bonf$reject_bonf)
+R_bh   <- sum(res_bh$reject_bh)
+cat(sprintf("Bonferroni: cutoff = %.4g, rejections = %d\n", t_Bonf, R_bonf))
+cat(sprintf("BH (q=%.2f): cutoff = %.4g, rejections = %d\n", q, t_BH, R_bh))
+
+# Plot: p-value histogram with Bonferroni and BH regions
+ggplot(sim_df, aes(x = pvalue)) +
+  # Light band for BH (if any)
+  annotate("rect", xmin = 0, xmax = ifelse(t_BH > 0, t_BH, 0), ymin = 0, ymax = Inf,
+           alpha = 0.20, fill = "grey70") +
+  # Darker band for Bonferroni (always <= BH when BH rejects anything)
+  annotate("rect", xmin = 0, xmax = t_Bonf, ymin = 0, ymax = Inf,
+           alpha = 0.45, fill = "grey40") +
+  geom_histogram(bins = 20, boundary = 0) +
+  geom_vline(xintercept = t_Bonf, color = "black", linewidth = 1) +
+  geom_vline(xintercept = t_BH, color = "orange", linewidth = 1) +
+  annotate("text", x = t_Bonf, y = Inf, label = "Bonferroni α/m", vjust = -0.5, hjust = 1, size = 3) +
+  annotate("text", x = t_BH, y = Inf, label = "BH cutoff", vjust = -0.5, hjust = 0, size = 3, color = "orange") +
+  labs(
+    title = "P-values with Bonferroni and BH rejection regions",
+    subtitle = paste0(
+      "Bonferroni: α = ", alpha, ", cutoff α/m = ", signif(t_Bonf, 3),
+      "  |  BH: q = ", q, ", cutoff = ", signif(t_BH, 3),
+      "\nRejections — Bonferroni: ", R_bonf, "  |  BH: ", R_bh
+    ),
+    x = "p-value", y = "Count"
+  ) +
+  theme_minimal()
+
+```
+
+- The Bonferroni adjustment method (darker band) has an extremely small cutoff, leading to only very few rejections compared to BH; in this simulation, we only got 1 rejection using the Bonferroni method!
+
+## Reflect and Discuss!
+1. How does the Bonferroni correction’s goal of controlling the family-wise error rate (FWER) differ from the Benjamini–Hochberg (BH) procedure’s goal of controlling the false discovery rate (FDR)?
+2. Can you think of other contexts where a researcher may prefer to use one type of error control that is more appropriate than the other?
+
+3. Looking at the simulated plots, what do you notice about how many hypotheses each method rejects?
+
+
+
+# Part 2: Bayesian Optimization
+## Activity Objective
+
+The multi-armed bandit problem captures the tradeoff between exploring new options and exploiting the best one found so far — like choosing which slot machine to play when their payouts are uncertain. In this activity, we’ll connect these ideas by visualizing how Bayesian Optimization uses uncertainty and observed results to make adaptive, data-driven decisions — just like a clever gambler learning which arm to pull next.
 
 > To start run the Shiny app `app.R`.
 
----
+                  
 
-# 1. The Multi-Armed Bandit Problem
+# 2: The Multi-Armed Bandit Problem
 
-## 1.1 Formal setup
 
-- We have $K$ arms (options), indexed $k=1,\dots,K$.
-- Each arm $k$ yields a binary reward $R_{k}\in\{0,1\}$ with **unknown** success probability $p_k\in(0,1)$.
-- At round $t=1,2,\dots,T$, we **choose** an arm $A_t\in\{1,\dots,K\}$, observe reward $R_{A_t,t}$, and update our strategy.
+## 2.1 Formal setup
 
-**Objective.** Maximize **cumulative reward** or equivalently **minimize regret** relative to the best arm
-$$
+-   We have $K$ arms (options), indexed $k=1,\dots,K$.
+-   Each arm $k$ yields a binary reward $R_{k}\in\{0,1\}$ with **unknown** success probability $p_k\in(0,1)$.
+-   At round $t=1,2,\dots,T$, we **choose** an arm $A_t\in\{1,\dots,K\}$, observe reward $R_{A_t,t}$, and update our strategy.
+
+**Objective.** Maximize **cumulative reward** or equivalently **minimize regret** relative to the best arm $$
 p_*=\max_{k}p_k,\qquad
 k_*\in\operatorname*{arg\,max}_{k}p_k.
 $$
 
-- **Cumulative reward** after $T$ rounds:
-$$
-S_T=\sum_{t=1}^{T}R_{A_t,t}.
-$$
+-   **Cumulative reward** after $T$ rounds: $$
+    S_T=\sum_{t=1}^{T}R_{A_t,t}.
+    $$
 
-- **Cumulative regret** after $T$ rounds:
-$$
-\mathcal{R}(T)=T\,p_*-\sum_{t=1}^{T}R_{A_t,t}.
-$$
+-   **Cumulative regret** after $T$ rounds: $$
+    \mathcal{R}(T)=T\,p_*-\sum_{t=1}^{T}R_{A_t,t}.
+    $$
 
-**Questions (before opening the app).**
-- If you knew $p_k$ for all $k$, what would you do at each round?
-- If you *don’t* know $p_k$, why can a purely exploitative strategy be risky?
-- Propose a way to quantify how “costly” learning is.
+**Questions (before opening the app).** - If you knew $p_k$ for all $k$, what would you do at each round? - If you *don’t* know $p_k$, why can a purely exploitative strategy be risky? - Propose a way to quantify how “costly” learning is.
 
-## 1.2 Exploration vs. exploitation
+## 2.2 Exploration vs. exploitation
 
-- **Exploration**: try arms with uncertain payoffs to learn $p_k$.
-- **Exploitation**: pull the arm that currently looks best to earn reward.
-- **Tension**: explore enough to identify $k_*$, but not so much that you waste pulls.
+-   **Exploration**: try arms with uncertain payoffs to learn $p_k$.
+-   **Exploitation**: pull the arm that currently looks best to earn reward.
+-   **Tension**: explore enough to identify $k_*$, but not so much that you waste pulls.
 
-**Questions.**
-- Give an example where early exploration clearly pays off later.
-- What observable signals suggest “it’s time to exploit”?
+**Questions.** - Give an example where early exploration clearly pays off later. - What observable signals suggest “it’s time to exploit”?
 
----
+                  
 
-# 2. Single-Arm Learning (Learn tab in the app)
+# 3. Single-Arm Learning (Learn tab in the app)
 
 This tab illustrates **Bayesian learning** for *one* Bernoulli arm.
 
-## 2.1 Model and posterior
+## 3.1 Model and posterior
 
-- **Likelihood.** If we observe $s$ successes and $f$ failures from one arm,
-$$
-R_1,\dots,R_n\mid p\sim\operatorname{Bernoulli}(p),\qquad n=s+f.
-$$
+-   **Likelihood.** If we observe $s$ successes and $f$ failures from one arm, $$
+    R_1,\dots,R_n\mid p\sim\operatorname{Bernoulli}(p),\qquad n=s+f.
+    $$
 
-- **Conjugate prior.** $p\sim\operatorname{Beta}(\alpha_0,\beta_0)$.
+-   **Conjugate prior.** $p\sim\operatorname{Beta}(\alpha_0,\beta_0)$.
 
-- **Posterior.**
-$$
-p\mid\text{data}\sim\operatorname{Beta}(\alpha_0+s,\;\beta_0+f).
-$$
+-   **Posterior.** $$
+    p\mid\text{data}\sim\operatorname{Beta}(\alpha_0+s,\;\beta_0+f).
+    $$
 
-- **Posterior mean** and a $100(1-\gamma)\%$ **credible interval**:
-$$
-\mathbb{E}[p\mid\text{data}]
-=\frac{\alpha_0+s}{\alpha_0+\beta_0+s+f},
-\qquad
-\text{CI}_{1-\gamma}=[\,q_{\gamma/2},\;q_{1-\gamma/2}\,],
-$$
-where $q_q$ is the $q$-quantile of $\operatorname{Beta}(\alpha_0+s,\beta_0+f)$.
+-   **Posterior mean** and a $100(1-\gamma)\%$ **credible interval**: $$
+    \mathbb{E}[p\mid\text{data}]
+    =\frac{\alpha_0+s}{\alpha_0+\beta_0+s+f},
+    \qquad
+    \text{CI}_{1-\gamma}=[\,q_{\gamma/2},\;q_{1-\gamma/2}\,],
+    $$ where $q_q$ is the $q$-quantile of $\operatorname{Beta}(\alpha_0+s,\beta_0+f)$.
 
-## 2.2 What the app shows
+## 3.2 What the app shows
 
-- **Posterior Beta curve**: your updated belief over $p$.
-- **Table**: prior hyperparameters, observed counts $(s,f)$, posterior hyperparameters, posterior mean, and (optionally) the *true* $p$ (hidden by default).
-- In the app, a **“success”** is a realized reward of $1$; a **“failure”** is $0$.
+-   **Posterior Beta curve**: your updated belief over $p$.
+-   **Table**: prior hyperparameters, observed counts $(s,f)$, posterior hyperparameters, posterior mean, and (optionally) the *true* $p$ (hidden by default).
+-   In the app, a **“success”** is a realized reward of $1$; a **“failure”** is $0$.
 
-## 2.3 Activity A — Single-arm Bayesian updating
+## 3.3 Activity A — Single-arm Bayesian updating
 
-1. Open **Learn (1-Arm)**. Set prior $\alpha_0=\beta_0=1$ and **hide** the true $p$.
-2. Click **Pull the Arm** 10 times (with “Pulls per click” set to 1). Record $s$, $f$, and the posterior mean.
-3. Reveal the true $p$. Did your $95\%$ credible interval contain it?
-4. Continue pulling until total pulls $n\ge 50$. Observe how the posterior narrows.
+1.  Open **Learn (1-Arm)**. Set prior $\alpha_0=\beta_0=1$ and **hide** the true $p$.
+2.  Click **Pull the Arm** 10 times (with “Pulls per click” set to 1). Record $s$, $f$, and the posterior mean.
+3.  Reveal the true $p$. Did your $95\%$ credible interval contain it?
+4.  Continue pulling until total pulls $n\ge 50$. Observe how the posterior narrows.
 
-**Questions.**
-- How do larger prior values $(\alpha_0,\beta_0)$ change early-stage behavior?
-- If the prior strongly favors high $p$ but the data are unfavorable, how quickly does the posterior adjust?
-- Why is conjugacy (Beta–Bernoulli) useful here?
+**Questions.** - How do larger prior values $(\alpha_0,\beta_0)$ change early-stage behavior? - If the prior strongly favors high $p$ but the data are unfavorable, how quickly does the posterior adjust? - Why is conjugacy (Beta–Bernoulli) useful here?
 
-**What to learn from this activity.**
-- Posterior uncertainty **shrinks** with data.
-- The posterior mean is a smoothed estimate (data + prior).
-- This exact updating mechanism underlies **Thompson Sampling** in multi-arm settings.
+**What to learn from this activity.** - Posterior uncertainty **shrinks** with data. - The posterior mean is a smoothed estimate (data + prior). - This exact updating mechanism underlies **Thompson Sampling** in multi-arm settings.
 
----
+                  
 
-# 3. Multi-Arm Policies (Play tab)
+# 4. Multi-Arm Policies (Play tab)
 
 This tab lets you **run a bandit** with $K$ arms and compare policies.
 
-## 3.1 Interpreting the visuals
+## 4.1 Interpreting the visuals
 
-- **Cumulative Regret**: the curve of $\mathcal{R}(t)$ versus $t$. *Lower is better.* A flatter slope means faster learning/focus on near-optimal arms.
-- **Pulls by Arm**: bar chart with counts $n_k(t)$ for each arm; in good runs the best arm’s bar grows dominant.
-- **Success vs Failure (stacked bars)**: per arm, shows **Hits** (successes) and **Misses** (failures) so you can see outcome balance and where exploration went.
-- **Per-arm Summary table**: for each arm shows **Pulls**, **Hits**, **Misses**, **Empirical mean** (hits/pulls), **Posterior mean** ($\alpha_k/(\alpha_k+\beta_k)$), **% of pulls**, and (optionally) **True $p$** when revealed.
+-   **Cumulative Regret**: the curve of $\mathcal{R}(t)$ versus $t$. *Lower is better.* A flatter slope means faster learning/focus on near-optimal arms.
+-   **Pulls by Arm**: bar chart with counts $n_k(t)$ for each arm; in good runs the best arm’s bar grows dominant.
+-   **Success vs Failure (stacked bars)**: per arm, shows **Hits** (successes) and **Misses** (failures) so you can see outcome balance and where exploration went.
+-   **Per-arm Summary table**: for each arm shows **Pulls**, **Hits**, **Misses**, **Empirical mean** (hits/pulls), **Posterior mean** ($\alpha_k/(\alpha_k+\beta_k)$), **% of pulls**, and (optionally) **True** $p$ when revealed.
 
-## 3.2 Policies
+## 4.2 Policies
 
 ### (a) $\varepsilon$-Greedy
-- Maintain sample means $\hat{\mu}_k(t)$.
-- With probability $\varepsilon$, **explore** uniformly; with probability $1-\varepsilon$, **exploit** the arm $\arg\max_k\hat{\mu}_k(t)$.
-- Pros: simple baseline.  
-- Cons: fixed exploration may be too much late, too little early.
+
+-   Maintain sample means $\hat{\mu}_k(t)$.
+-   With probability $\varepsilon$, **explore** uniformly; with probability $1-\varepsilon$, **exploit** the arm $\arg\max_k\hat{\mu}_k(t)$.
+-   Pros: simple baseline.\
+-   Cons: fixed exploration may be too much late, too little early.
 
 ### (b) UCB1 (Upper Confidence Bound)
-Choose the arm that maximizes an **optimistic** estimate:
-$$
-\operatorname{UCB1}_k(t)=\hat{\mu}_k(t)+\sqrt{\frac{2\ln t}{n_k(t)}},
-$$
-where $n_k(t)$ is the number of times arm $k$ has been pulled up to round $t$.
-The confidence bonus **shrinks** as $n_k(t)$ grows.
 
-- Pros: strong regret guarantees in iid Bernoulli settings.  
-- Cons: can be conservative or mis-calibrated outside assumptions.
+Choose the arm that maximizes an **optimistic** estimate: $$
+\operatorname{UCB1}_k(t)=\hat{\mu}_k(t)+\sqrt{\frac{2\ln t}{n_k(t)}},
+$$ where $n_k(t)$ is the number of times arm $k$ has been pulled up to round $t$. The confidence bonus **shrinks** as $n_k(t)$ grows.
+
+-   Pros: strong regret guarantees in iid Bernoulli settings.\
+-   Cons: can be conservative or mis-calibrated outside assumptions.
 
 ### (c) Thompson Sampling (TS)
-Maintain a **Beta posterior** per arm:
-$$
+
+Maintain a **Beta posterior** per arm: $$
 p_k\mid\text{data}\sim\operatorname{Beta}(\alpha_k,\beta_k),\qquad
 \alpha_k\leftarrow\alpha_k+\text{successes},\;\beta_k\leftarrow\beta_k+\text{failures}.
-$$
-Each round:
-1. Sample $\tilde{p}_k\sim\operatorname{Beta}(\alpha_k,\beta_k)$ independently for each arm.  
+$$ Each round: 1. Sample $\tilde{p}_k\sim\operatorname{Beta}(\alpha_k,\beta_k)$ independently for each arm.\
 2. Pull $\arg\max_k\tilde{p}_k$.
 
-- Pros: elegant Bayesian decision rule; excellent empirical performance; “probability matching”.  
-- Cons: requires a model and priors; early behavior can be prior-sensitive.
+-   Pros: elegant Bayesian decision rule; excellent empirical performance; “probability matching”.\
+-   Cons: requires a model and priors; early behavior can be prior-sensitive.
 
-## 3.3 Activity B — Explore vs. exploit in practice
+## 4.3 Activity B — Explore vs. exploit in practice
 
-1. In **Play (Multi-Arm)**, set $K=4$, **Randomize arms**, Horizon $=100$. After simulation go to the Replay tab and build a replay to watch how the arms were chosen.
-2. Run **$\varepsilon$-Greedy** with $\varepsilon=0.30$ and then with $\varepsilon=0.05$. Compare **Cumulative Regret**, **Pulls by Arm**, and **Success vs Failure**.
-3. On the same instance (click **Reset** once to fix a new draw), run **UCB1** and **TS**. Inspect the **Per-arm Summary** (empirical vs posterior mean; % pulls).
+1.  In **Play (Multi-Arm)**, set $K=4$, **Randomize arms**, Horizon $=100$. After simulation go to the Replay tab and build a replay to watch how the arms were chosen.
+2.  Run $\varepsilon$-Greedy with $\varepsilon=0.30$ and then with $\varepsilon=0.05$. Compare **Cumulative Regret**, **Pulls by Arm**, and **Success vs Failure**.
+3.  On the same instance (click **Reset** once to fix a new draw), run **UCB1** and **TS**. Inspect the **Per-arm Summary** (empirical vs posterior mean; % pulls).
 
-**Questions.**
-- Which policy locks onto the best arm fastest? What do you see in **Pulls by Arm** and **Success vs Failure**?
-- How does increasing $\varepsilon$ change early vs late performance?
-- Do posterior means typically shrink toward empirical means as pulls grow? Why?
+**Questions.** - Which policy locks onto the best arm fastest? What do you see in **Pulls by Arm** and **Success vs Failure**? - How does increasing $\varepsilon$ change early vs late performance? - Do posterior means typically shrink toward empirical means as pulls grow? Why?
 
-**What to learn from this activity.**
-- $\varepsilon$-Greedy uses a fixed exploration dial; performance depends on $\varepsilon$.
-- UCB1 explores where uncertainty remains (optimism).
-- TS balances explore/exploit by sampling from posterior beliefs.
-- Per-arm summaries provide quick diagnostics of allocation quality.
+**What to learn from this activity.** - $\varepsilon$-Greedy uses a fixed exploration dial; performance depends on $\varepsilon$. - UCB1 explores where uncertainty remains (optimism). - TS balances explore/exploit by sampling from posterior beliefs. - Per-arm summaries provide quick diagnostics of allocation quality.
 
----
+                  
 
-# 4. Replicated Evaluation (Compare tab)
+# 5. Replicated Evaluation (Compare tab)
 
 Single runs can be noisy. Replicates provide a **fairer comparison**.
 
-## 4.1 What the tab computes
+## 5.1 What the tab computes
 
-For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy multiple times and records **terminal regret** $\mathcal{R}(H)$, then produces:
-- A **mean $\pm$ 95% CI** plot per policy; and
-- A **per-policy summary table** (not per-run) with: $n$, mean, sd, median, 2.5% and 97.5% quantiles of $\mathcal{R}(H)$.
+For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy multiple times and records **terminal regret** $\mathcal{R}(H)$, then produces: - A **mean** $\pm$ 95% CI plot per policy; and - A **per-policy summary table** (not per-run) with: $n$, mean, sd, median, 2.5% and 97.5% quantiles of $\mathcal{R}(H)$.
 
-## 4.2 Activity C — Compare policies with replication
+## 5.2 Activity C — Compare policies with replication
 
-1. In **Compare**, set $K=4$, Horizon $=300$, Replicates $=100$, $\varepsilon=0.1$. Click **Run Comparison**.
-2. Inspect the **mean $\pm$ 95% CI** plot and the **per-policy summary** table.
-3. Turn off randomization and set arms close together (e.g., $p=[0.56,0.54,0.53,0.50]$). Re-run.
+1.  In **Compare**, set $K=4$, Horizon $=300$, Replicates $=100$, $\varepsilon=0.1$. Click **Run Comparison**.
+2.  Inspect the **mean** $\pm$ 95% CI plot and the **per-policy summary** table.
+3.  Turn off randomization and set arms close together (e.g., $p=[0.56,0.54,0.53,0.50]$). Re-run.
 
-**Questions.**
-- Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs and quantiles?
-- How do the summaries change when arms are harder to distinguish (smaller gaps)?
-- What happens to regret and pull allocation as $K$ increases?
+**Questions.** - Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs and quantiles? - How do the summaries change when arms are harder to distinguish (smaller gaps)? - What happens to regret and pull allocation as $K$ increases?
 
-**What to learn from this activity.**
-- Harder problems (small gaps) increase regret for **every** policy.
-- TS/UCB1 typically dominate $\varepsilon$-Greedy baselines.
-- Replication reduces variance and supports stronger conclusions.
+**What to learn from this activity.** - Harder problems (small gaps) increase regret for **every** policy. - TS/UCB1 typically dominate $\varepsilon$-Greedy baselines. - Replication reduces variance and supports stronger conclusions.
 
----
+                  
