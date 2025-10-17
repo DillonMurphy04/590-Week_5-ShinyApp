@@ -13,351 +13,225 @@ fontsize: 12pt
 execute:
   warning: false
 ---
-# Part 1: False Discovery Rate Controlling Procedure
 
+# Part 1: False Discovery Rate (FDR) Controlling Procedure
 
-## Introduction/Background
-***Exploring False Discovery Rate (FDR) Control***
+## Introduction / Background
 
-In this activity, we’ll explore the concept of the False Discovery Rate (FDR) introduced by Benjamini and Hochberg (1995). When we perform many hypothesis tests at once, some tests will appear “significant” just by chance — even when assuming all null hypotheses are true. 
+When we perform many hypothesis tests, some will appear “significant” purely by chance, even if all null hypotheses are true. As the number of tests increases, so does the chance of getting at least one result that looks significant but isn’t actually real.
 
-- Traditional methods like the Bonferroni correction are too conservative and aim to control the probability of any false positives (the family-wise error rate, FWER), often reducing power.
+A false positive (or false discovery) happens when we reject the null hypothesis even though it’s actually true.
 
-- Also known as the Benjamini–Hochberg (BH) procedure, it takes a different approach: it controls the expected proportion of false discoveries among all rejected hypotheses. This allows for a better balance between finding true effects and limiting false ones.
+Traditional methods like the Bonferroni correction aim to control the probability of any false positives across all tests, the family-wise error rate (FWER) (the probability of getting at least one false positive). However, this approach can be overly conservative, greatly reducing statistical power. 
 
-## Activity Objective
-
-In this R activity, you will visualize the distribution of p-values that arise from multiple testing scenarios, and see how the BH procedure identifies a data-driven cutoff to control FDR. The cut-off being "data-driven" is what makes BH fall under adaptive decision analysis.
-
-- By comparing the unadjusted and adjusted results, you will get some intuition on how FDR control adapts to the evidence in the data.
-
-# 1. Looking at Multiple Testing
-
-```{r}
-#| message: false
-#| include: false
-# Load libraries
-library(tidyverse)
-```
-
+The Benjamini–Hochberg (BH) procedure (1995) takes a more flexible approach: it controls the expected proportion of false discoveries among all rejected hypotheses, the false discovery rate (FDR). This means controlling the expected proportion of false positives among all rejections.
+This provides a better balance between detecting real effects and limiting false ones.
 
 ## 1.1 The Null Distribution of p-values
 
-Parameters: $\mu_0 =98.6, n = 4, sigma = 1 ,\alpha_0 = 0.05$
+Under the null hypothesis, p-values follow a Uniform(0, 1) distribution.
+The gray region in the plot shows the α = 0.05 rejection region.
 
 ```{r}
+#| message: false
+#| warning: false
+# Load libraries
+library(tidyverse)
+
 # Parameters
 mu0 <- 98.6
 n <- 4
 sigma <- 1
 alpha0 <- 0.05
 
-#   Step 1: Simulate data under H0  
-# Each sample has size n, sampled from Normal(mu0, sigma)
+# Step 1: Simulate data under H0
 n_sims <- 10000
 samples <- replicate(n_sims, rnorm(n, mean = mu0, sd = sigma))
 
-#   Step 2: Compute two-sided p-values for each simulated sample  
+# Step 2: Compute p-values for each sample
 sample_means <- colMeans(samples)
 z_vals <- abs(sample_means - mu0) / (sigma / sqrt(n))
 p_values <- 2 * pnorm(-z_vals)
 
-#   Step 3: Create data frame for plotting  
-df <- tibble(p_value = p_values)
-
-#   Step 4: Plot p-value distribution vs Uniform(0,1)  
-ggplot(df, aes(x = p_value)) +
+# Step 3: Plot
+tibble(p_value = p_values) |>
+  ggplot(aes(p_value)) +
   geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "skyblue", color = "white", alpha = 0.7) +
-  geom_hline(yintercept = 1, color = "black", linetype = "dashed") +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  geom_rect(aes(xmin = -Inf, xmax = alpha0, ymin = 0, ymax = Inf),
+            fill = "gray", alpha = 0.01, inherit.aes = FALSE) +
   geom_vline(xintercept = alpha0, color = "orange", size = 1) +
-  geom_rect(aes(xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf),
-            fill = "gray", alpha = 0.3, inherit.aes = FALSE) +
   labs(
     title = "Distribution of p-values under H0",
-    x = "p-value",
-    y = "Density",
-    subtitle = paste0("α = ", alpha0, " (gray area = rejection region)")
+    subtitle = "α = 0.05 (gray area = rejection region)",
+    x = "p-value", y = "Density"
   ) +
   theme_minimal(base_size = 14)
 
 ```
+## 1.2 The Alternative Distribution of p-values
 
-## 1.2 Alternative distribution of the p-value 
-- Now we'll be assuming the alternative hypothesis is true, with $\mu_1 = 97.5$.
+When the alternative hypothesis is true (e.g., μ₁ = 97.5), p-values concentrate near 0 — showing strong evidence against H₀.
+
 ```{r}
+#| message: false
+#| warning: false
 # Parameters
-mu0 <- 98.6      # Null hypothesis mean
-mu1 <- 97.5      # True mean under H1
-n <- 4
-sigma <- 1
-alpha0 <- 0.05
+mu1 <- 97.5
 n_sims <- 10000
 
-#   Step 1: Simulate data under H1  
+# Simulate data under H1
 samples <- replicate(n_sims, rnorm(n, mean = mu1, sd = sigma))
 
-#   Step 2: Compute two-sided p-values (standardized under H0)  
+# Compute p-values (still testing against mu0)
 sample_means <- colMeans(samples)
 z_vals <- abs(sample_means - mu0) / (sigma / sqrt(n))
 p_values <- 2 * pnorm(-z_vals)
 
-#   Step 3: Create tibble for plotting  
-df <- tibble(p_value = p_values)
-
-#   Step 4: Plot p-value distribution under H1  
-ggplot(df, aes(x = p_value)) +
-  geom_histogram(aes(y = after_stat(density)), bins = 30,
-                 fill = "tomato", color = "white", alpha = 0.7) +
+# Plot
+tibble(p_value = p_values) |>
+  ggplot(aes(p_value)) +
+  geom_histogram(aes(y = after_stat(density)), bins = 30, fill = "tomato", color = "white", alpha = 0.7) +
   geom_vline(xintercept = alpha0, color = "orange", size = 1) +
-  geom_rect(aes(xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf),
-            fill = "gray", alpha = 0.3, inherit.aes = FALSE) +
+  geom_rect(aes(xmin = -Inf, xmax = alpha0, ymin = 0, ymax = Inf),
+            fill = "gray", alpha = 0.05, inherit.aes = FALSE) +
   labs(
     title = expression("Distribution of p-values under " ~ H[1]),
-    subtitle = paste0("α = ", alpha0, " (gray area = rejection region)"),
-    x = "p-value",
-    y = "Density"
+    subtitle = "α = 0.05 (gray area = rejection region)",
+    x = "p-value", y = "Density"
   ) +
   theme_minimal(base_size = 14)
 
 ```
+## 1.3 Multiple Tests — No Correction
 
-
-## 1.3 Multiple Tests - No correction
-
-
-```{r}
-#   parameters  
-m      <- 1000
-mu0    <- 98.6
-mu1    <- 97.5
-p1     <- 0.10
-n      <- 4
-sigma  <- 1
-alpha0 <- 0.05   # set your threshold
-
-set.seed(123)    # for reproducibility (optional)
-
-#   simulate I ~ Bernoulli(p1) and sample X ~ Normal(mu_i, sigma)^n, m times  
-# Vectorized + fast
-I_vec  <- rbinom(m, size = 1, prob = p1)
-mu_vec <- if_else(I_vec == 0, mu0, mu1)
-
-# Draw n observations per replicate with the appropriate mean
-X_mat  <- matrix(
-  rnorm(m * n, mean = rep(mu_vec, each = n), sd = sigma),
-  nrow = m, byrow = TRUE
-)
-
-# p-values under H0: mu = mu0
-xbar   <- rowMeans(X_mat)
-z      <- abs(xbar - mu0) / (sigma / sqrt(n))
-pvals  <- 2 * pnorm(-z)
-
-sim_df <- tibble(I = I_vec, p_value = pvals)
-
-# count number of rejections at alpha0
-R <- sum(sim_df$p_value <= alpha0)
-
-#   plot: histogram with 20 bins (counts), vertical line at alpha0, shaded [0, alpha0]  
-ggplot(sim_df, aes(x = p_value)) +
-  # shaded region first so it's behind the bars
-  annotate("rect", xmin = 0, xmax = alpha0, ymin = 0, ymax = Inf,
-           alpha = 0.5, fill = "grey70") +
-  geom_histogram(bins = 20, boundary = 0) +   # default y is count (not normalized)
-  geom_vline(xintercept = alpha0, color = "orange", linewidth = 1) +
-  labs(x = "p-value", y = "Count",
-       title = "Simulated p-values under mixture of H0 and H1",
-       subtitle = paste0("alpha cutoff = 0.05, number of rejections = ",R)) +
-  theme_minimal()
-
-```
-
-## 1.4 Benjamini-Hochberg Procedure
-
-- We are looking at a two-sided alternative hypothesis test for each of the m = 1000 hypotheses.
-- The BH procedure fixes a desired FDR level, in this case we specify q = 0.10
+Now simulate m = 1000 independent tests, where 10% are true signals (H₁) and 90% are nulls (H₀).
 
 ```{r}
 # Parameters
-m           <- 1000     # number of hypotheses
-mu0         <- 98.6
-mu1         <- 97.5
-p1          <- 0.10     # fraction under H1
-n_per_test  <- 4        # per-hypothesis sample size
-sigma       <- 1
-q           <- 0.10     # BH FDR level
-
+m <- 1000
+p1 <- 0.10
 set.seed(123)
 
-# Simulate truth and data
-I_vec  <- rbinom(m, size = 1, prob = p1)                # 1 = H1, 0 = H0
-mu_vec <- if_else(I_vec == 1, mu1, mu0)
+# Simulate true/false hypotheses
+I_vec <- rbinom(m, size = 1, prob = p1)
+mu_vec <- if_else(I_vec == 0, mu0, mu1)
 
-X_mat <- matrix(
-  rnorm(m * n_per_test, mean = rep(mu_vec, each = n_per_test), sd = sigma),
-  nrow = m, byrow = TRUE
-)
-
-# Two-sided z-test p-values vs H0: mu = mu0
+# Generate data and compute p-values
+X_mat <- matrix(rnorm(m * n, mean = rep(mu_vec, each = n), sd = sigma), nrow = m, byrow = TRUE)
 xbar <- rowMeans(X_mat)
-z    <- abs(xbar - mu0) / (sigma / sqrt(n_per_test))
-pval <- 2 * pnorm(-z)
-
-sim_df <- tibble(
-  id     = seq_len(m),
-  I      = I_vec,
-  pvalue = pval
-)
-
-# BH (step-up) procedure
-bh_tbl <- sim_df %>%
-  arrange(pvalue) %>%
-  mutate(
-    rank   = row_number(),
-    thresh = (rank / m) * q,
-    keep   = pvalue <= thresh
-  )
-
-k_max <- if (any(bh_tbl$keep)) max(which(bh_tbl$keep)) else 0
-t_BH  <- if (k_max > 0) bh_tbl$pvalue[k_max] else 0
-
-res_df <- sim_df %>%
-  mutate(reject = pvalue <= t_BH)
-
-# Summary
-R  <- sum(res_df$reject)
-V  <- sum(res_df$reject & res_df$I == 0)
-S  <- sum(res_df$reject & res_df$I == 1)
-m0 <- sum(res_df$I == 0)
-m1 <- sum(res_df$I == 1)
-
-FDP   <- if (R > 0) V / R else 0
-Power <- if (m1 > 0) S / m1 else NA_real_
-
-tibble(m, q, m0, m1, R, S, V, FDP, Power, t_BH) %>% print()
+z <- abs(xbar - mu0) / (sigma / sqrt(n))
+pvals <- 2 * pnorm(-z)
 
 # Plot
-ggplot(res_df, aes(x = pvalue)) +
-  annotate("rect", xmin = 0, xmax = t_BH, ymin = 0, ymax = Inf,
-           alpha = 0.4, fill = "grey70") +
+sim_df <- tibble(I = I_vec, p_value = pvals)
+R <- sum(pvals <= alpha0)
+
+ggplot(sim_df, aes(p_value)) +
   geom_histogram(bins = 20, boundary = 0) +
-  geom_vline(xintercept = t_BH, color = "orange", linewidth = 1) +
+  geom_vline(xintercept = alpha0, color = "orange", linewidth = 1) +
   labs(
-    title = "P-values with BH cutoff",
-    subtitle = paste0("q = ", q, ", cutoff t_BH = ", signif(t_BH, 3),
-                      ", rejections R = ", R),
+    title = "Simulated p-values under mixture of H0 and H1",
+    subtitle = paste0("α cutoff = 0.05, number of rejections = ", R),
     x = "p-value", y = "Count"
   ) +
   theme_minimal()
-
 ```
+## 1.4 Benjamini–Hochberg (BH) Procedure
 
+The BH procedure controls FDR at level q = 0.10.
+It sorts p-values and finds the largest p₍ᵢ₎ ≤ (i/m)q — defining a data-adaptive cutoff.
 
-
-## 1.5 Comparing BH to Bonferroni
 ```{r}
-library(tidyverse)
-
 # Parameters
-m           <- 1000      # number of hypotheses
-mu0         <- 98.6
-mu1         <- 97.5
-p1          <- 0.10      # fraction under H1
-n_per_test  <- 4         # per-hypothesis sample size
-sigma       <- 1
-alpha       <- 0.05      # family-wise error rate target (Bonferroni)
-q           <- 0.10      # FDR level for BH (optional comparison)
+q <- 0.10
 
-set.seed(123)
-
-# Simulate truth and data
-I_vec  <- rbinom(m, size = 1, prob = p1)                # 1 = H1, 0 = H0
-mu_vec <- if_else(I_vec == 1, mu1, mu0)
-
-X_mat <- matrix(
-  rnorm(m * n_per_test, mean = rep(mu_vec, each = n_per_test), sd = sigma),
-  nrow = m, byrow = TRUE
-)
-
-# Two-sided z-test p-values vs H0: mu = mu0
-xbar <- rowMeans(X_mat)
-z    <- abs(xbar - mu0) / (sigma / sqrt(n_per_test))
-pval <- 2 * pnorm(-z)
-
-sim_df <- tibble(
-  id     = seq_len(m),
-  I      = I_vec,
-  pvalue = pval
-)
-
-# Bonferroni cutoff and rejections
-t_Bonf <- alpha / m
-res_bonf <- sim_df %>% mutate(reject_bonf = pvalue <= t_Bonf)
-
-# Optional BH cutoff and rejections (to show contrast)
-bh_tbl <- sim_df %>%
-  arrange(pvalue) %>%
+# Rank p-values and apply BH
+bh_tbl <- tibble(pvalue = pvals) |>
+  arrange(pvalue) |>
   mutate(rank = row_number(),
          thresh = (rank / m) * q,
          keep = pvalue <= thresh)
 
 k_max <- if (any(bh_tbl$keep)) max(which(bh_tbl$keep)) else 0
-t_BH  <- if (k_max > 0) bh_tbl$pvalue[k_max] else 0
-res_bh <- sim_df %>% mutate(reject_bh = pvalue <= t_BH)
+t_BH <- if (k_max > 0) bh_tbl$pvalue[k_max] else 0
 
-# Quick summary
-R_bonf <- sum(res_bonf$reject_bonf)
-R_bh   <- sum(res_bh$reject_bh)
-cat(sprintf("Bonferroni: cutoff = %.4g, rejections = %d\n", t_Bonf, R_bonf))
-cat(sprintf("BH (q=%.2f): cutoff = %.4g, rejections = %d\n", q, t_BH, R_bh))
+# Rejections
+res_df <- tibble(pvalue = pvals, I = I_vec, reject = pvals <= t_BH)
+R <- sum(res_df$reject)
+V <- sum(res_df$reject & res_df$I == 0)
+S <- sum(res_df$reject & res_df$I == 1)
+m0 <- sum(res_df$I == 0)
+m1 <- sum(res_df$I == 1)
+FDP <- if (R > 0) V / R else 0
+Power <- if (m1 > 0) S / m1 else NA_real_
 
-# Plot: p-value histogram with Bonferroni and BH regions
-ggplot(sim_df, aes(x = pvalue)) +
-  # Light band for BH (if any)
-  annotate("rect", xmin = 0, xmax = ifelse(t_BH > 0, t_BH, 0), ymin = 0, ymax = Inf,
-           alpha = 0.20, fill = "grey70") +
-  # Darker band for Bonferroni (always <= BH when BH rejects anything)
-  annotate("rect", xmin = 0, xmax = t_Bonf, ymin = 0, ymax = Inf,
-           alpha = 0.45, fill = "grey40") +
+tibble(m, q, m0, m1, R, S, V, FDP, Power, t_BH)
+
+# Plot
+ggplot(res_df, aes(pvalue)) +
   geom_histogram(bins = 20, boundary = 0) +
-  geom_vline(xintercept = t_Bonf, color = "black", linewidth = 1) +
   geom_vline(xintercept = t_BH, color = "orange", linewidth = 1) +
-  annotate("text", x = t_Bonf, y = Inf, label = "Bonferroni α/m", vjust = -0.5, hjust = 1, size = 3) +
-  annotate("text", x = t_BH, y = Inf, label = "BH cutoff", vjust = -0.5, hjust = 0, size = 3, color = "orange") +
   labs(
-    title = "P-values with Bonferroni and BH rejection regions",
-    subtitle = paste0(
-      "Bonferroni: α = ", alpha, ", cutoff α/m = ", signif(t_Bonf, 3),
-      "  |  BH: q = ", q, ", cutoff = ", signif(t_BH, 3),
-      "\nRejections — Bonferroni: ", R_bonf, "  |  BH: ", R_bh
-    ),
+    title = "P-values with BH cutoff",
+    subtitle = paste0("q = 0.10, cutoff t_BH = ", signif(t_BH, 3),
+                      ", rejections R = ", R),
     x = "p-value", y = "Count"
   ) +
   theme_minimal()
+```
+## 1.5 Comparing BH to Bonferroni
+
+Finally, compare Bonferroni and BH rejections.
+Bonferroni controls FWER (probability of any false positives), while BH controls FDR (expected proportion of false discoveries).
+
+```{r}
+# Compute rejections
+t_Bonf <- alpha0 / m
+R_Bonf <- sum(pvals <= t_Bonf)
+R_BH   <- sum(pvals <= t_BH)
+
+# Create histogram
+ggplot(tibble(p_value = pvals), aes(p_value)) +
+  geom_histogram(bins = 40, boundary = 0, fill = "gray70", color = "white") +
+
+  # Add vertical lines for cutoffs
+  geom_vline(xintercept = t_Bonf, color = "red", linewidth = 1) +
+  geom_vline(xintercept = t_BH, color = "orange", linewidth = 1) +
+  
+  # Axis limits to zoom in near the small p-value region
+  coord_cartesian(xlim = c(0, max(t_BH * 3, 0.01))) +
+  
+  labs(
+    title = "Zoomed-In Comparison of Bonferroni vs BH Cutoffs",
+    subtitle = paste0(
+      "Bonferroni (red): α/m = ", signif(t_Bonf, 3), " → R = ", R_Bonf, "\n",
+      "BH (orange): q = 0.10 → t_BH = ", signif(t_BH, 3), " → R = ", R_BH
+    ),
+    x = "p-value (zoomed in near 0)", 
+    y = "Count",
+    caption = "Note: Bonferroni controls the Family-Wise Error Rate (FWER); BH controls the False Discovery Rate (FDR)."
+  ) +
+  theme_minimal(base_size = 14)
 
 ```
-
-- The Bonferroni adjustment method (darker band) has an extremely small cutoff, leading to only very few rejections compared to BH; in this simulation, we only got 1 rejection using the Bonferroni method!
-
 ## Reflect and Discuss!
-1. How does the Bonferroni correction’s goal of controlling the family-wise error rate (FWER) differ from the Benjamini–Hochberg (BH) procedure’s goal of controlling the false discovery rate (FDR)?
-2. Can you think of other contexts where a researcher may prefer to use one type of error control that is more appropriate than the other?
 
-3. Looking at the simulated plots, what do you notice about how many hypotheses each method rejects?
+How does the Bonferroni correction’s goal of controlling the family-wise error rate (FWER) differ from the Benjamini–Hochberg (BH) procedure’s goal of controlling the false discovery rate (FDR)?
 
+Can you think of other contexts where a researcher may prefer to use one type of error control that is more appropriate than the other?
 
+Looking at the simulated plots, what do you notice about how many hypotheses each method rejects?
 
 # Part 2: Bayesian Optimization
+
 ## Activity Objective
 
 The multi-armed bandit problem captures the tradeoff between exploring new options and exploiting the best one found so far — like choosing which slot machine to play when their payouts are uncertain. In this activity, we’ll connect these ideas by visualizing how Bayesian Optimization uses uncertainty and observed results to make adaptive, data-driven decisions — just like a clever gambler learning which arm to pull next.
 
-> To start run the Shiny app `app.R`.
-
-                  
+> To start run the Shiny app `app.R`. Or go to https://izsl0n-dillonmurphy04.shinyapps.io/Multi-Armed-Bandit/
 
 # 2: The Multi-Armed Bandit Problem
-
 
 ## 2.1 Formal setup
 
@@ -387,8 +261,6 @@ $$
 -   **Tension**: explore enough to identify $k_*$, but not so much that you waste pulls.
 
 **Questions.** - Give an example where early exploration clearly pays off later. - What observable signals suggest “it’s time to exploit”?
-
-                  
 
 # 3. Single-Arm Learning (Learn tab in the app)
 
@@ -429,8 +301,6 @@ This tab illustrates **Bayesian learning** for *one* Bernoulli arm.
 **Questions.** - How do larger prior values $(\alpha_0,\beta_0)$ change early-stage behavior? - If the prior strongly favors high $p$ but the data are unfavorable, how quickly does the posterior adjust? - Why is conjugacy (Beta–Bernoulli) useful here?
 
 **What to learn from this activity.** - Posterior uncertainty **shrinks** with data. - The posterior mean is a smoothed estimate (data + prior). - This exact updating mechanism underlies **Thompson Sampling** in multi-arm settings.
-
-                  
 
 # 4. Multi-Arm Policies (Play tab)
 
@@ -482,8 +352,6 @@ $$ Each round: 1. Sample $\tilde{p}_k\sim\operatorname{Beta}(\alpha_k,\beta_k)$ 
 
 **What to learn from this activity.** - $\varepsilon$-Greedy uses a fixed exploration dial; performance depends on $\varepsilon$. - UCB1 explores where uncertainty remains (optimism). - TS balances explore/exploit by sampling from posterior beliefs. - Per-arm summaries provide quick diagnostics of allocation quality.
 
-                  
-
 # 5. Replicated Evaluation (Compare tab)
 
 Single runs can be noisy. Replicates provide a **fairer comparison**.
@@ -501,5 +369,3 @@ For a fixed horizon $H$ and arm configuration $\{p_k\}$, it runs each policy mul
 **Questions.** - Which policy has the **lowest mean terminal regret**? Are differences practically meaningful given the CIs and quantiles? - How do the summaries change when arms are harder to distinguish (smaller gaps)? - What happens to regret and pull allocation as $K$ increases?
 
 **What to learn from this activity.** - Harder problems (small gaps) increase regret for **every** policy. - TS/UCB1 typically dominate $\varepsilon$-Greedy baselines. - Replication reduces variance and supports stronger conclusions.
-
-                  
